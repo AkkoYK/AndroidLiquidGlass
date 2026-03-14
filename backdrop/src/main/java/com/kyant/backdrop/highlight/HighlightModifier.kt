@@ -82,6 +82,8 @@ internal class HighlightNode(
     private val runtimeShaderCache = RuntimeShaderCacheImpl()
 
     private var prevStyle: HighlightStyle? = null
+    private var prevBlurRadius = Float.NaN
+    private var cachedMaskFilter: BlurMaskFilter? = null
 
     override fun ContentDrawScope.draw() {
         val highlight = highlight()
@@ -145,6 +147,8 @@ internal class HighlightNode(
         clipPath = null
         runtimeShaderCache.clear()
         prevStyle = null
+        prevBlurRadius = Float.NaN
+        cachedMaskFilter = null
     }
 
     private fun DrawScope.configurePaint(highlight: Highlight) {
@@ -152,12 +156,15 @@ internal class HighlightNode(
         paint.strokeWidth =
             ceil(highlight.width.toPx().fastCoerceAtMost(size.minDimension / 2f)) * 2f
         val blurRadius = highlight.blurRadius.toPx()
-        paint.asFrameworkPaint().maskFilter =
-            if (blurRadius > 0f) {
+        if (blurRadius != prevBlurRadius) {
+            prevBlurRadius = blurRadius
+            cachedMaskFilter = if (blurRadius > 0f) {
                 BlurMaskFilter(blurRadius, BlurMaskFilter.Blur.NORMAL)
             } else {
                 null
             }
+        }
+        paint.asFrameworkPaint().maskFilter = cachedMaskFilter
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             paint.shader = with(highlight.style) {
                 createShader(

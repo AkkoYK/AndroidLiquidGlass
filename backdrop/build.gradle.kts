@@ -41,6 +41,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.kyant.shapes)
+    testImplementation("junit:junit:4.13.2")
 }
 
 mavenPublishing {
