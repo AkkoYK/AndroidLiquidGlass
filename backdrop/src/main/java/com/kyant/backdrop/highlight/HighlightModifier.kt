@@ -18,6 +18,7 @@ import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.node.requireGraphicsContext
 import androidx.compose.ui.platform.InspectorInfo
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.util.fastCoerceAtMost
@@ -38,6 +39,7 @@ internal class HighlightElement(
     override fun update(node: HighlightNode) {
         node.shapeProvider = shapeProvider
         node.highlight = highlight
+        node.markDirty()
         node.invalidateDraw()
     }
 
@@ -85,6 +87,15 @@ internal class HighlightNode(
     private var prevBlurRadius = Float.NaN
     private var cachedMaskFilter: BlurMaskFilter? = null
 
+    private var isDirty = true
+    private var prevHighlight: Highlight? = null
+    private var prevSize = Size.Unspecified
+    private var prevOutline: Outline? = null
+
+    fun markDirty() {
+        isDirty = true
+    }
+
     override fun ContentDrawScope.draw() {
         val highlight = highlight()
         if (highlight == null || highlight.width.value <= 0f) {
@@ -99,32 +110,47 @@ internal class HighlightNode(
             val density: Density = this
             val layoutDirection = layoutDirection
 
-            val safeSize =
-                IntSize(
-                    ceil(size.width).toInt() + 2,
-                    ceil(size.height).toInt() + 2
-                )
-
             val outline = shapeProvider.shape.createOutline(size, layoutDirection, density)
             val clipPath =
                 if (outline is Outline.Rounded) {
-                    clipPath ?: Path().also { clipPath = it }
+                    if (outline !== prevOutline) {
+                        (clipPath ?: Path().also { clipPath = it }).apply {
+                            rewind()
+                            addRoundRect(outline.roundRect)
+                        }
+                        prevOutline = outline
+                    }
+                    clipPath
                 } else {
+                    prevOutline = outline
                     null
                 }
 
-            configurePaint(highlight)
+            val needsRerecord = isDirty || highlight != prevHighlight || size != prevSize
+            if (needsRerecord) {
+                val safeSize =
+                    IntSize(
+                        ceil(size.width).toInt() + 2,
+                        ceil(size.height).toInt() + 2
+                    )
 
-            highlightLayer.alpha = highlight.alpha
-            highlightLayer.blendMode = highlight.style.blendMode
-            highlightLayer.record(safeSize) {
-                translate(1f, 1f) {
-                    val canvas = drawContext.canvas
-                    canvas.save()
-                    canvas.clipOutline(outline, clipPath)
-                    canvas.drawOutline(outline, paint)
-                    canvas.restore()
+                configurePaint(highlight)
+
+                highlightLayer.alpha = highlight.alpha
+                highlightLayer.blendMode = highlight.style.blendMode
+                highlightLayer.record(safeSize) {
+                    translate(1f, 1f) {
+                        val canvas = drawContext.canvas
+                        canvas.save()
+                        canvas.clipOutline(outline, clipPath)
+                        canvas.drawOutline(outline, paint)
+                        canvas.restore()
+                    }
                 }
+
+                prevHighlight = highlight
+                prevSize = size
+                isDirty = false
             }
 
             translate(-1f, -1f) {
@@ -149,6 +175,10 @@ internal class HighlightNode(
         prevStyle = null
         prevBlurRadius = Float.NaN
         cachedMaskFilter = null
+        isDirty = true
+        prevHighlight = null
+        prevSize = Size.Unspecified
+        prevOutline = null
     }
 
     private fun DrawScope.configurePaint(highlight: Highlight) {

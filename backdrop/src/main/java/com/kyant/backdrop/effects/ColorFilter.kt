@@ -27,16 +27,24 @@ fun BackdropEffectScope.colorFilter(colorFilter: androidx.compose.ui.graphics.Co
     colorFilter(colorFilter.asAndroidColorFilter())
 }
 
+private var cachedOpacityAlpha = Float.NaN
+private var cachedOpacityFilter: ColorMatrixColorFilter? = null
+
 fun BackdropEffectScope.opacity(@FloatRange(from = 0.0, to = 1.0) alpha: Float) {
-    val colorMatrix = ColorMatrix(
-        floatArrayOf(
-            1f, 0f, 0f, 0f, 0f,
-            0f, 1f, 0f, 0f, 0f,
-            0f, 0f, 1f, 0f, 0f,
-            0f, 0f, 0f, alpha, 0f
+    if (alpha != cachedOpacityAlpha) {
+        cachedOpacityAlpha = alpha
+        cachedOpacityFilter = ColorMatrixColorFilter(
+            ColorMatrix(
+                floatArrayOf(
+                    1f, 0f, 0f, 0f, 0f,
+                    0f, 1f, 0f, 0f, 0f,
+                    0f, 0f, 1f, 0f, 0f,
+                    0f, 0f, 0f, alpha, 0f
+                )
+            )
         )
-    )
-    colorFilter(ColorMatrixColorFilter(colorMatrix))
+    }
+    colorFilter(cachedOpacityFilter!!)
 }
 
 fun BackdropEffectScope.colorControls(

@@ -2,6 +2,7 @@ package com.kyant.backdrop.shadow
 
 import android.graphics.BlurMaskFilter
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawOutline
@@ -33,6 +34,7 @@ internal class ShadowElement(
     override fun update(node: ShadowNode) {
         node.shapeProvider = shapeProvider
         node.shadow = shadow
+        node.markDirty()
         node.invalidateDraw()
     }
 
@@ -72,6 +74,14 @@ internal class ShadowNode(
     private var prevBlurRadius = Float.NaN
     private var cachedMaskFilter: BlurMaskFilter? = null
 
+    private var isDirty = true
+    private var prevShadow: Shadow? = null
+    private var prevSize = Size.Unspecified
+
+    fun markDirty() {
+        isDirty = true
+    }
+
     override fun ContentDrawScope.draw() {
         val shadow = shadow() ?: return drawContent()
 
@@ -84,24 +94,32 @@ internal class ShadowNode(
             val radius = shadow.radius.toPx()
             val offsetX = shadow.offset.x.toPx()
             val offsetY = shadow.offset.y.toPx()
-            val shadowSize = IntSize(
-                ceil(size.width + radius * 4f + offsetX).toInt(),
-                ceil(size.height + radius * 4f + offsetY).toInt()
-            )
-            val outline = shapeProvider.shape.createOutline(size, layoutDirection, density)
 
-            configurePaint(shadow)
+            val needsRerecord = isDirty || shadow != prevShadow || size != prevSize
+            if (needsRerecord) {
+                val shadowSize = IntSize(
+                    ceil(size.width + radius * 4f + offsetX).toInt(),
+                    ceil(size.height + radius * 4f + offsetY).toInt()
+                )
+                val outline = shapeProvider.shape.createOutline(size, layoutDirection, density)
 
-            shadowLayer.alpha = shadow.alpha
-            shadowLayer.blendMode = shadow.blendMode
-            shadowLayer.record(shadowSize) {
-                translate(radius * 2f + offsetX, radius * 2f + offsetY) {
-                    val canvas = drawContext.canvas
-                    canvas.drawOutline(outline, paint)
-                    canvas.translate(-offsetX, -offsetY)
-                    canvas.drawOutline(outline, ShadowMaskPaint)
-                    canvas.translate(offsetX, offsetY)
+                configurePaint(shadow)
+
+                shadowLayer.alpha = shadow.alpha
+                shadowLayer.blendMode = shadow.blendMode
+                shadowLayer.record(shadowSize) {
+                    translate(radius * 2f + offsetX, radius * 2f + offsetY) {
+                        val canvas = drawContext.canvas
+                        canvas.drawOutline(outline, paint)
+                        canvas.translate(-offsetX, -offsetY)
+                        canvas.drawOutline(outline, ShadowMaskPaint)
+                        canvas.translate(offsetX, offsetY)
+                    }
                 }
+
+                prevShadow = shadow
+                prevSize = size
+                isDirty = false
             }
 
             translate(-radius * 2f, -radius * 2f) {
@@ -128,6 +146,9 @@ internal class ShadowNode(
         }
         prevBlurRadius = Float.NaN
         cachedMaskFilter = null
+        isDirty = true
+        prevShadow = null
+        prevSize = Size.Unspecified
     }
 
     private fun DrawScope.configurePaint(shadow: Shadow) {
