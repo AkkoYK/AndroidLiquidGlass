@@ -69,6 +69,8 @@ internal class ShadowNode(
     private var shadowLayer: GraphicsLayer? = null
 
     private val paint = Paint()
+    private var prevBlurRadius = Float.NaN
+    private var cachedMaskFilter: BlurMaskFilter? = null
 
     override fun ContentDrawScope.draw() {
         val shadow = shadow() ?: return drawContent()
@@ -124,17 +126,22 @@ internal class ShadowNode(
             graphicsContext.releaseGraphicsLayer(layer)
             shadowLayer = null
         }
+        prevBlurRadius = Float.NaN
+        cachedMaskFilter = null
     }
 
     private fun DrawScope.configurePaint(shadow: Shadow) {
         paint.color = shadow.color
         val blurRadius = shadow.radius.toPx()
-        paint.asFrameworkPaint().maskFilter =
-            if (blurRadius > 0f) {
+        if (blurRadius != prevBlurRadius) {
+            prevBlurRadius = blurRadius
+            cachedMaskFilter = if (blurRadius > 0f) {
                 BlurMaskFilter(blurRadius, BlurMaskFilter.Blur.NORMAL)
             } else {
                 null
             }
+        }
+        paint.asFrameworkPaint().maskFilter = cachedMaskFilter
     }
 }
 

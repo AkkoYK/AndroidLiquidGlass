@@ -152,13 +152,6 @@ internal class InnerShadowNode(
         paint.color = shadow.color
     }
 
-    private fun DrawScope.drawMaskedShadow(outline: Outline, layer: GraphicsLayer) {
-        val canvas = drawContext.canvas
-        canvas.save()
-        canvas.clipOutline(outline, clipPath)
-        drawLayer(layer)
-        canvas.restore()
-    }
 }
 
 private val ShadowMaskPaint = Paint().apply {

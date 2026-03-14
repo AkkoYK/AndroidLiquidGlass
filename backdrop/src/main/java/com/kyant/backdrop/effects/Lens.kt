@@ -26,7 +26,7 @@ fun BackdropEffectScope.lens(
         padding = (padding - refractionHeight).fastCoerceAtLeast(0f)
     }
 
-    val cornerRadii = cornerRadii
+    val cornerRadii = fillCornerRadii(cachedLensCornerRadii)
     val effect =
         if (cornerRadii != null) {
             val shader =
@@ -59,55 +59,38 @@ fun BackdropEffectScope.lens(
     effect(effect)
 }
 
-private val BackdropEffectScope.cornerRadii: FloatArray?
-    get() = when (val shape = shape) {
+private val cachedLensCornerRadii = FloatArray(4)
+
+private fun BackdropEffectScope.fillCornerRadii(out: FloatArray): FloatArray? =
+    when (val shape = shape) {
         is RoundedRectangularShape -> {
             val corners = shape.corners(size, layoutDirection, this)
-            floatArrayOf(
-                corners.topLeft,
-                corners.topRight,
-                corners.bottomRight,
-                corners.bottomLeft
-            )
+            out[0] = corners.topLeft
+            out[1] = corners.topRight
+            out[2] = corners.bottomRight
+            out[3] = corners.bottomLeft
+            out
         }
 
         is AbsoluteRoundedCornerShape -> {
             val size = size
             val maxRadius = size.minDimension / 2f
-            val topLeft = shape.topStart.toPx(size, this)
-            val topRight = shape.topEnd.toPx(size, this)
-            val bottomRight = shape.bottomEnd.toPx(size, this)
-            val bottomLeft = shape.bottomStart.toPx(size, this)
-            floatArrayOf(
-                topLeft.fastCoerceAtMost(maxRadius),
-                topRight.fastCoerceAtMost(maxRadius),
-                bottomRight.fastCoerceAtMost(maxRadius),
-                bottomLeft.fastCoerceAtMost(maxRadius)
-            )
+            out[0] = shape.topStart.toPx(size, this).fastCoerceAtMost(maxRadius)
+            out[1] = shape.topEnd.toPx(size, this).fastCoerceAtMost(maxRadius)
+            out[2] = shape.bottomEnd.toPx(size, this).fastCoerceAtMost(maxRadius)
+            out[3] = shape.bottomStart.toPx(size, this).fastCoerceAtMost(maxRadius)
+            out
         }
 
         is CornerBasedShape -> {
             val size = size
             val maxRadius = size.minDimension / 2f
             val isLtr = layoutDirection == LayoutDirection.Ltr
-            val topLeft =
-                if (isLtr) shape.topStart.toPx(size, this)
-                else shape.topEnd.toPx(size, this)
-            val topRight =
-                if (isLtr) shape.topEnd.toPx(size, this)
-                else shape.topStart.toPx(size, this)
-            val bottomRight =
-                if (isLtr) shape.bottomEnd.toPx(size, this)
-                else shape.bottomStart.toPx(size, this)
-            val bottomLeft =
-                if (isLtr) shape.bottomStart.toPx(size, this)
-                else shape.bottomEnd.toPx(size, this)
-            floatArrayOf(
-                topLeft.fastCoerceAtMost(maxRadius),
-                topRight.fastCoerceAtMost(maxRadius),
-                bottomRight.fastCoerceAtMost(maxRadius),
-                bottomLeft.fastCoerceAtMost(maxRadius)
-            )
+            out[0] = (if (isLtr) shape.topStart.toPx(size, this) else shape.topEnd.toPx(size, this)).fastCoerceAtMost(maxRadius)
+            out[1] = (if (isLtr) shape.topEnd.toPx(size, this) else shape.topStart.toPx(size, this)).fastCoerceAtMost(maxRadius)
+            out[2] = (if (isLtr) shape.bottomEnd.toPx(size, this) else shape.bottomStart.toPx(size, this)).fastCoerceAtMost(maxRadius)
+            out[3] = (if (isLtr) shape.bottomStart.toPx(size, this) else shape.bottomEnd.toPx(size, this)).fastCoerceAtMost(maxRadius)
+            out
         }
 
         else -> null

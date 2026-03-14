@@ -41,11 +41,14 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.kyant.shapes)
+    testImplementation("junit:junit:4.13.2")
 }
 
 mavenPublishing {
     publishToMavenCentral()
-    signAllPublications()
+    if (project.findProperty("signing.keyId") != null || System.getenv("ORG_GRADLE_PROJECT_signingInMemoryKey") != null) {
+        signAllPublications()
+    }
 
     coordinates("io.github.kyant0", "backdrop", "1.0.6")
 

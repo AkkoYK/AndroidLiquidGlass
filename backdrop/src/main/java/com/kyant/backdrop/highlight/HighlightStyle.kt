@@ -132,27 +132,20 @@ interface HighlightStyle {
     }
 }
 
+private val cachedHighlightCornerRadii = FloatArray(4)
+
 private fun DrawScope.getCornerRadii(shape: Shape): FloatArray {
+    val out = cachedHighlightCornerRadii
     val size = size
     val maxRadius = size.minDimension / 2f
-    val shape = shape as? CornerBasedShape ?: return FloatArray(4) { maxRadius }
+    val shape = shape as? CornerBasedShape ?: run {
+        out[0] = maxRadius; out[1] = maxRadius; out[2] = maxRadius; out[3] = maxRadius
+        return out
+    }
     val isLtr = layoutDirection == LayoutDirection.Ltr
-    val topLeft =
-        if (isLtr) shape.topStart.toPx(size, this)
-        else shape.topEnd.toPx(size, this)
-    val topRight =
-        if (isLtr) shape.topEnd.toPx(size, this)
-        else shape.topStart.toPx(size, this)
-    val bottomRight =
-        if (isLtr) shape.bottomEnd.toPx(size, this)
-        else shape.bottomStart.toPx(size, this)
-    val bottomLeft =
-        if (isLtr) shape.bottomStart.toPx(size, this)
-        else shape.bottomEnd.toPx(size, this)
-    return floatArrayOf(
-        topLeft.fastCoerceAtMost(maxRadius),
-        topRight.fastCoerceAtMost(maxRadius),
-        bottomRight.fastCoerceAtMost(maxRadius),
-        bottomLeft.fastCoerceAtMost(maxRadius)
-    )
+    out[0] = (if (isLtr) shape.topStart.toPx(size, this) else shape.topEnd.toPx(size, this)).fastCoerceAtMost(maxRadius)
+    out[1] = (if (isLtr) shape.topEnd.toPx(size, this) else shape.topStart.toPx(size, this)).fastCoerceAtMost(maxRadius)
+    out[2] = (if (isLtr) shape.bottomEnd.toPx(size, this) else shape.bottomStart.toPx(size, this)).fastCoerceAtMost(maxRadius)
+    out[3] = (if (isLtr) shape.bottomStart.toPx(size, this) else shape.bottomEnd.toPx(size, this)).fastCoerceAtMost(maxRadius)
+    return out
 }
