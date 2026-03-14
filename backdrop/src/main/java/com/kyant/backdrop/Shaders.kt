@@ -70,21 +70,17 @@ half4 main(float2 coord) {
     float radius = radiusAt(coord, cornerRadii);
 
     float sd = sdRoundedRect(centeredCoord, halfSize, radius);
-    if (sd > 0.0) {
-        return content.eval(coord);
-    }
-    if (-sd >= refractionHeight) {
+    if (sd > 0.0 || -sd >= refractionHeight) {
         return content.eval(coord);
     }
 
-    float d = circleMap(1.0 - -sd / refractionHeight) * refractionAmount;
+    half d = half(circleMap(1.0 - -sd / refractionHeight) * refractionAmount);
     float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
-    float2 rawGrad = gradSdRoundedRect(centeredCoord, halfSize, gradRadius);
-    float2 grad = (depthEffect > 0.0)
-        ? normalize(rawGrad + depthEffect * normalize(centeredCoord))
-        : rawGrad;
+    half2 grad = half2((depthEffect > 0.0)
+        ? normalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + depthEffect * normalize(centeredCoord))
+        : gradSdRoundedRect(centeredCoord, halfSize, gradRadius));
 
-    float2 refractedCoord = coord + d * grad;
+    float2 refractedCoord = coord + float2(d * grad);
     return content.eval(refractedCoord);
 }"""
 
@@ -112,27 +108,23 @@ half4 main(float2 coord) {
     float radius = radiusAt(coord, cornerRadii);
 
     float sd = sdRoundedRect(centeredCoord, halfSize, radius);
-    if (sd > 0.0) {
-        return content.eval(coord);
-    }
-    if (-sd >= refractionHeight) {
+    if (sd > 0.0 || -sd >= refractionHeight) {
         return content.eval(coord);
     }
 
-    float d = circleMap(1.0 - -sd / refractionHeight) * refractionAmount;
+    half d = half(circleMap(1.0 - -sd / refractionHeight) * refractionAmount);
     float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
-    float2 rawGrad = gradSdRoundedRect(centeredCoord, halfSize, gradRadius);
-    float2 grad = (depthEffect > 0.0)
-        ? normalize(rawGrad + depthEffect * normalize(centeredCoord))
-        : rawGrad;
+    half2 grad = half2((depthEffect > 0.0)
+        ? normalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + depthEffect * normalize(centeredCoord))
+        : gradSdRoundedRect(centeredCoord, halfSize, gradRadius));
 
-    float2 refractedCoord = coord + d * grad;
-    float dispersionIntensity = chromaticAberration * ((centeredCoord.x * centeredCoord.y) / (halfSize.x * halfSize.y));
-    float2 dispersedCoord = d * grad * dispersionIntensity;
+    float2 refractedCoord = coord + float2(d * grad);
+    half dispersionIntensity = half(chromaticAberration * ((centeredCoord.x * centeredCoord.y) / (halfSize.x * halfSize.y)));
+    half2 dispersedCoord = d * grad * dispersionIntensity;
 
-    half4 sR = content.eval(refractedCoord + dispersedCoord);
+    half4 sR = content.eval(refractedCoord + float2(dispersedCoord));
     half4 sG = content.eval(refractedCoord);
-    half4 sB = content.eval(refractedCoord - dispersedCoord);
+    half4 sB = content.eval(refractedCoord - float2(dispersedCoord));
 
     return half4(sR.r, sG.g, sB.b, (sR.a + sG.a + sB.a) / 3.0);
 }"""
@@ -142,7 +134,7 @@ internal const val DefaultHighlightShaderString = """
 uniform float2 size;
 uniform float4 cornerRadii;
 layout(color) uniform half4 color;
-uniform float angle;
+uniform float2 normal;
 uniform float falloff;
 
 $RoundedRectSDF
@@ -151,10 +143,9 @@ half4 main(float2 coord) {
     float2 halfSize = size * 0.5;
     float2 centeredCoord = coord - halfSize;
     float radius = radiusAt(coord, cornerRadii);
-    
+
     float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
     float2 grad = gradSdRoundedRect(centeredCoord, halfSize, gradRadius);
-    float2 normal = float2(cos(angle), sin(angle));
     float d = dot(grad, normal);
     float intensity = pow(abs(d), falloff);
     return color * intensity;
@@ -164,7 +155,7 @@ half4 main(float2 coord) {
 internal const val AmbientHighlightShaderString = """
 uniform float2 size;
 uniform float4 cornerRadii;
-uniform float angle;
+uniform float2 normal;
 uniform float falloff;
 
 $RoundedRectSDF
@@ -173,10 +164,9 @@ half4 main(float2 coord) {
     float2 halfSize = size * 0.5;
     float2 centeredCoord = coord - halfSize;
     float radius = radiusAt(coord, cornerRadii);
-    
+
     float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
     float2 grad = gradSdRoundedRect(centeredCoord, halfSize, gradRadius);
-    float2 normal = float2(cos(angle), sin(angle));
     float d = dot(grad, normal);
     float intensity = pow(abs(d), falloff);
     float t = step(0.0, d);
@@ -191,8 +181,6 @@ uniform float power;
 
 half4 main(float2 coord) {
     half4 color = content.eval(coord);
-    color.r = pow(color.r, power);
-    color.g = pow(color.g, power);
-    color.b = pow(color.b, power);
+    color.rgb = pow(color.rgb, half3(power));
     return color;
 }"""

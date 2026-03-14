@@ -18,6 +18,8 @@ import com.kyant.backdrop.AmbientHighlightShaderString
 import com.kyant.backdrop.DefaultHighlightShaderString
 import com.kyant.backdrop.RuntimeShaderCache
 import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 @Immutable
 interface HighlightStyle {
@@ -80,7 +82,8 @@ interface HighlightStyle {
                     setFloatUniform("size", size.width, size.height)
                     setFloatUniform("cornerRadii", getCornerRadii(shape))
                     setColorUniform("color", color.copy(alpha = 1f).toArgb())
-                    setFloatUniform("angle", angle * (PI / 180f).toFloat())
+                    val angleRad = angle * (PI / 180f).toFloat()
+                    setFloatUniform("normal", cos(angleRad), sin(angleRad))
                     setFloatUniform("falloff", falloff)
                 }
             } else {
@@ -110,7 +113,8 @@ interface HighlightStyle {
                 ).apply {
                     setFloatUniform("size", size.width, size.height)
                     setFloatUniform("cornerRadii", getCornerRadii(shape))
-                    setFloatUniform("angle", 45f * (PI / 180f).toFloat())
+                    val angleRad = 45f * (PI / 180f).toFloat()
+                    setFloatUniform("normal", cos(angleRad), sin(angleRad))
                     setFloatUniform("falloff", 1f)
                 }
             } else {

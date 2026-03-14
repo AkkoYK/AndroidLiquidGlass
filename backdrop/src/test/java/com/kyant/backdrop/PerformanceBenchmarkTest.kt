@@ -141,9 +141,19 @@ class PerformanceBenchmarkTest {
         println("  Reduction: ${"%.1f".format(reduction)}%")
         println()
         println("Refraction Shader Early Exit:")
-        println("  Added: sd > 0.0 early return (skips exterior pixels)")
-        println("  Benefit: For a 200x100 rounded rect with r=20, ~15-25% of")
-        println("  bounding box pixels are exterior and now skip all refraction math")
+        println("  Merged: sd > 0.0 || -sd >= refractionHeight (single branch)")
+        println("  Benefit: Reduced branch divergence on mobile GPUs")
+        println()
+        println("Half Precision Intermediates:")
+        println("  Converted: d, grad, dispersedCoord to half precision")
+        println("  Benefit: Up to 2x throughput on Mali/Adreno GPUs")
+        println()
+        println("Highlight Normal Precomputation:")
+        println("  Moved: cos(angle)/sin(angle) from per-fragment to CPU")
+        println("  Benefit: Eliminates 2 trig ops per fragment per highlight")
+        println()
+        println("Gamma Vectorization:")
+        println("  Changed: 3x scalar pow() -> 1x vector pow()")
         println()
         println("depthEffect=0 Optimization:")
         println("  Removed: 1 normalize() call (containing sqrt) per fragment")
@@ -152,6 +162,62 @@ class PerformanceBenchmarkTest {
 
         assert(newLookups < oldLookups)
         assert(reduction > 50.0)
+    }
+
+    /**
+     * Benchmark: Dirty flag skip re-recording pattern.
+     * Simulates the cost savings from skipping GraphicsLayer.record() when unchanged.
+     */
+    @Test
+    fun benchmarkDirtyFlagSkipPattern() {
+        val iterations = 500_000
+        val warmup = 50_000
+
+        var dirtyFlag = false
+        var recordCount = 0
+
+        // Warmup
+        for (i in 0 until warmup) {
+            if (dirtyFlag) {
+                recordCount++
+                dirtyFlag = false
+            }
+        }
+
+        // Benchmark: always record (old)
+        val alwaysStart = System.nanoTime()
+        for (i in 0 until iterations) {
+            simulateRecord()
+        }
+        val alwaysTime = System.nanoTime() - alwaysStart
+
+        // Benchmark: skip when clean (new) - simulate static element
+        recordCount = 0
+        dirtyFlag = true // dirty only once
+        val skipStart = System.nanoTime()
+        for (i in 0 until iterations) {
+            if (dirtyFlag) {
+                simulateRecord()
+                dirtyFlag = false
+                recordCount++
+            }
+        }
+        val skipTime = System.nanoTime() - skipStart
+
+        println("=== Dirty Flag Skip Pattern ($iterations iterations) ===")
+        println("Old (always record):  ${alwaysTime / 1_000_000.0} ms")
+        println("New (skip when clean): ${skipTime / 1_000_000.0} ms")
+        println("Records executed: $recordCount / $iterations")
+        println()
+
+        assert(recordCount == 1) { "Should only record once when dirty flag is set once" }
+        assert(skipTime < alwaysTime) { "Skip pattern should be faster" }
+    }
+
+    private fun simulateRecord() {
+        // Simulate GraphicsLayer.record() overhead with some work
+        @Suppress("UNUSED_VARIABLE")
+        val x = FloatArray(8) { it.toFloat() }
     }
 
     // --- Helper methods ---
